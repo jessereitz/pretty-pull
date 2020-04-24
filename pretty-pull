@@ -18,3 +18,14 @@ function prettify-commits {
         echo
     done
 }
+
+function pretty-pull {
+    BASE_BRANCH=$1
+    FEATURE_BRANCH=$2
+
+    if [ -z FEATURE_BRANCH ]; then
+        FEATURE_BRANCH=HEAD
+    fi
+
+    prettify-commits | hub pull-request
+}
