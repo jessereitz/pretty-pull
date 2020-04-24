@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 
-function prettify-commits {
+function pretty-pull {
     BASE_BRANCH=$1
     FEATURE_BRANCH=$2
 
-    diff_commit_shas=$(git log --pretty="%H" --no-merges $BASE_BRANCH...$FEATURE_BRANCH)
+    if [ -z $BASE_BRANCH ]; then
+        echo "No base branch provided. Using master"
+        BASE_BRANCH=master
+    fi
 
-    for commit_sha in $diff_commit_shas
-    do
-        # Get subject of commit
-        echo "## $(git log --pretty="%s" -1 $commit_sha)"
-        git log --pretty="%b" -1 $commit_sha
+    if [ -z $FEATURE_BRANCH ]; then
+        FEATURE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+        echo "No feature branch provided. Using current branch ${FEATURE_BRANCH}"
+    fi
 
-        # # Get the body of a commit
-        echo $commit_sha
-        echo ---
-        echo
-    done
+    echo "Opening pull request from ${FEATURE_BRANCH} to ${BASE_BRANCH}"
+    pr_body="${FEATURE_BRANCH} => ${BASE_BRANCH}\n\n$(git log --pretty=format:"## %s\n\n%b\n\n%H \n\n---\n" --no-merges $BASE_BRANCH...$FEATURE_BRANCH)"
+    echo -e $pr_body | hub pull-request --file=-
 }
