@@ -16,5 +16,5 @@ function pretty-pull {
 
     echo "Opening pull request from ${FEATURE_BRANCH} to ${BASE_BRANCH}"
     pr_body="${FEATURE_BRANCH} => ${BASE_BRANCH}\n\n$(git log --pretty=format:"## %s\n\n%b\n\n%H \n\n---\n" --no-merges $BASE_BRANCH...$FEATURE_BRANCH)"
-    echo -e $pr_body | hub pull-request --file=-
+    echo -e $pr_body | hub pull-request --base $BASE_BRANCH --head $FEATURE_BRANCH --file=-
 }
