@@ -1,20 +1,20 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
-function pretty-pull {
+prettypull() {
     BASE_BRANCH=$1
     FEATURE_BRANCH=$2
 
-    if [ -z $BASE_BRANCH ]; then
+    if [ -z "$BASE_BRANCH" ]; then
         echo "No base branch provided. Using master"
         BASE_BRANCH=master
     fi
 
-    if [ -z $FEATURE_BRANCH ]; then
+    if [ -z "$FEATURE_BRANCH" ]; then
         FEATURE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
         echo "No feature branch provided. Using current branch ${FEATURE_BRANCH}"
     fi
 
     echo "Opening pull request from ${FEATURE_BRANCH} to ${BASE_BRANCH}"
-    pr_body="${FEATURE_BRANCH} => ${BASE_BRANCH}\n\n$(git log --pretty=format:"## %s\n\n%b\n\n%H \n\n---\n" --reverse --no-merges $BASE_BRANCH...$FEATURE_BRANCH)"
-    echo -e $pr_body | hub pull-request --base $BASE_BRANCH --head $FEATURE_BRANCH --file=-
+    pr_body="${FEATURE_BRANCH} => ${BASE_BRANCH}\n\n$(git log --pretty=format:"## %s\n\n%b\n\n%H \n\n---\n" --reverse --no-merges "$BASE_BRANCH"..."$FEATURE_BRANCH")"
+    printf "$pr_body" | hub pull-request --base "$BASE_BRANCH" --head "$FEATURE_BRANCH" --file=-
 }
