@@ -5,8 +5,8 @@ prettypull() {
     FEATURE_BRANCH=$2
 
     if [ -z "$BASE_BRANCH" ]; then
-        echo "No base branch provided. Using master"
-        BASE_BRANCH=master
+        BASE_BRANCH=$(git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | awk '{$1=$1};1')
+        echo "No base branch provided. Using remote default branch ${BASE_BRANCH}"
     fi
 
     if [ -z "$FEATURE_BRANCH" ]; then
