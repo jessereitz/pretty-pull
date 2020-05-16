@@ -1,40 +1,116 @@
 #!/bin/sh
 
-updatePullRequest() {
-    echo "this is a new func"
-    url="/repos/$owner/$repo/pulls/$pull_number"
-    body="{\"body\": \"\"}"
-}
-
 prettypull() {
-    BASE_BRANCH=$1
-    FEATURE_BRANCH=$2
-    success=true
+HELP_TEXT=$(cat <<-END
+Usage: prettypull [OPTIONS]
+    Open a pretty pull request.
+Options:
+    -b,   --base            Default 'local'. Determines the db to run migrations against. Options: 'local', 'dev', 'prod'
+    -f,   --feature         Default false/none.
+    -v,   --verbose         Output in verbose mode
+    -h,   --help            Display this help and exit
+Example Usage:
+    prettypull --base=master --feature=neat-feature-1
+        This will open or update a pull request from 'neat-feature-1' to 'master' containing all differing commits between the two
+END
+)
 
-    if [ -z "$BASE_BRANCH" ]; then
-        BASE_BRANCH=$(git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | awk '{$1=$1};1')
-        echo "No base branch provided. Using remote default branch ${BASE_BRANCH}"
-    fi
+    VERBOSE=false
+    BASE_BRANCH=''
+    FEATURE_BRANCH=''
+    CURRENT_PR_URL=''
 
-    if [ -z "$FEATURE_BRANCH" ]; then
-        FEATURE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-        echo "No feature branch provided. Using current branch ${FEATURE_BRANCH}"
-    fi
+    for ARGUMENT in "$@"
+    do
+        KEY=$(echo "$ARGUMENT" | cut -f1 -d=)
+        VALUE=$(echo "$ARGUMENT" | cut -f2 -d=)
 
-    echo "Opening pull request from ${FEATURE_BRANCH} to ${BASE_BRANCH}"
-    pr_body="${FEATURE_BRANCH} => ${BASE_BRANCH}\n\n$(git log --pretty=format:"## %s\n\n%b\n\n%H \n\n---\n" --reverse --no-merges "$BASE_BRANCH"..."$FEATURE_BRANCH")"
-    printf "$pr_body" | hub pull-request --base "$BASE_BRANCH" --head "$FEATURE_BRANCH" --file=- || sucess=false
+        case "$KEY" in
+            --base|-b)
+                BASE_BRANCH="$VALUE"
+                ;;
+            --feature|-f)
+                FEATURE_BRANCH="$VALUE"
+                ;;
+            --verbose|-v)
+                VERBOSE=true
+                ;;
+            --help|-h)
+                echo "$HELP_TEXT"
+                return 0
+                ;;
+            *)
+        esac
+    done
 
-    if [ $success != true ]; then
-        current_pr_url=$(hub pr list -f %U -h "$FEATURE_BRANCH")
+    setBaseBranch() {
+        if [ -z "$BASE_BRANCH" ]; then
+            BASE_BRANCH=$(git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | awk '{$1=$1};1')
+            echo "No base branch provided. Using remote default branch ${BASE_BRANCH}"
+        fi
+    }
 
-        if [ -z $url ]; then
-            echo "Unable to open a pull-request ¯\_(ツ)_/¯"
-            return 1
+    setFeatureBranch() {
+        if [ -z "$FEATURE_BRANCH" ]; then
+            FEATURE_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            echo "No feature branch provided. Using current branch ${FEATURE_BRANCH}"
+        fi
+    }
+
+    setCurrentURL() {
+        echo "Checking for existing pull request..."
+        CURRENT_PR_URL=$(hub pr list -f %U -h "$FEATURE_BRANCH")
+
+        if [ "$VERBOSE" = true ]; then
+            if [ -z "$CURRENT_PR_URL" ]; then
+                echo "No open pull request found"
+            else
+                echo "Open pull request found at $CURRENT_PR_URL"
+            fi
+        fi
+    }
+
+    formattedPrBody() {
+        body=$(git log --pretty=format:"## %s\n\n%b\n\n%H \n\n---\n" --reverse --no-merges "$BASE_BRANCH"..."$FEATURE_BRANCH")
+        if [ "$1" = "-t" ]; then
+            body="$FEATURE_BRANCH => $BASE_BRANCH\n\n$body"
         fi
 
-        echo "There is already a PR open: $current_pr_url"
-        printf "$pr_body"
-        # printf "$pr_body" | hub api "$url" --input=-
+        printf "%b" "$body"
+    }
+
+    openPullRequest() {
+        echo "Opening pull request from ${FEATURE_BRANCH} to ${BASE_BRANCH}"
+        formattedPrBody -t | hub pull-request --base "$BASE_BRANCH" --head "$FEATURE_BRANCH" --file=-
+    }
+
+    updatePullRequest() {
+        echo "Updating existing pull request at $CURRENT_PR_URL"
+
+        # Parse the current url to build the url with which to post to the api
+        pr_api_url=$(echo "$CURRENT_PR_URL" | awk 'BEGIN { FS="/" } { print "/repos/"$4"/"$5"/pulls/"$7 }')
+
+        res=$(hub api "$pr_api_url" -i -t --field body="$(formattedPrBody)")
+        status=$(printf "%b" "$res" | grep "Status: 200 OK")
+
+        if [ -z "$status" ]; then
+            echo "There was an error updating the pull request"
+        else
+            echo "Done"
+        fi
+
+        if [ "$VERBOSE" = true ]; then
+            echo "GitHub response:"
+            printf "%b\n" "$res"
+        fi
+    }
+
+    setBaseBranch
+    setFeatureBranch
+    setCurrentURL
+    if [ -z "$CURRENT_PR_URL" ]; then
+        openPullRequest
+    else
+        updatePullRequest
     fi
 }
