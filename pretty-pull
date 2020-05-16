@@ -2,6 +2,8 @@
 
 updatePullRequest() {
     echo "this is a new func"
+    url="/repos/$owner/$repo/pulls/$pull_number"
+    body="{\"body\": \"\"}"
 }
 
 prettypull() {
@@ -24,7 +26,15 @@ prettypull() {
     printf "$pr_body" | hub pull-request --base "$BASE_BRANCH" --head "$FEATURE_BRANCH" --file=- || sucess=false
 
     if [ $success != true ]; then
-        echo "Unable to open pull-request"
+        current_pr_url=$(hub pr list -f %U -h "$FEATURE_BRANCH")
 
+        if [ -z $url ]; then
+            echo "Unable to open a pull-request ¯\_(ツ)_/¯"
+            return 1
+        fi
+
+        echo "There is already a PR open: $current_pr_url"
+        printf "$pr_body"
+        # printf "$pr_body" | hub api "$url" --input=-
     fi
 }
