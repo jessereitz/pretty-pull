@@ -1,8 +1,13 @@
 #!/bin/sh
 
+updatePullRequest() {
+    echo "this is a new func"
+}
+
 prettypull() {
     BASE_BRANCH=$1
     FEATURE_BRANCH=$2
+    success=true
 
     if [ -z "$BASE_BRANCH" ]; then
         BASE_BRANCH=$(git remote show origin | grep "HEAD branch" | cut -d ":" -f 2 | awk '{$1=$1};1')
@@ -16,5 +21,10 @@ prettypull() {
 
     echo "Opening pull request from ${FEATURE_BRANCH} to ${BASE_BRANCH}"
     pr_body="${FEATURE_BRANCH} => ${BASE_BRANCH}\n\n$(git log --pretty=format:"## %s\n\n%b\n\n%H \n\n---\n" --reverse --no-merges "$BASE_BRANCH"..."$FEATURE_BRANCH")"
-    printf "$pr_body" | hub pull-request --base "$BASE_BRANCH" --head "$FEATURE_BRANCH" --file=-
+    printf "$pr_body" | hub pull-request --base "$BASE_BRANCH" --head "$FEATURE_BRANCH" --file=- || sucess=false
+
+    if [ $success != true ]; then
+        echo "Unable to open pull-request"
+
+    fi
 }
